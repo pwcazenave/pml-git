@@ -15,6 +15,7 @@ def parseUnstructuredGridSMS(mesh):
     fileRead.close()
 
     triangles = []
+    nodes = []
     x = []
     y = []
     z = []
@@ -31,14 +32,16 @@ def parseUnstructuredGridSMS(mesh):
             x.append(float(xy[2]))
             y.append(float(xy[3]))
             z.append(float(xy[4]))
+            nodes.append(int(xy[1]))
 
     # Convert to numpy arrays.
     triangle = np.asarray(triangles)
+    nodes = np.asarray(nodes)
     X = np.asarray(x)
     Y = np.asarray(y)
     Z = np.asarray(z)
 
-    return(triangle, X, Y, Z)
+    return(triangle, nodes, X, Y, Z)
 
 def parseUnstructuredGridFVCOM(mesh):
     """ Reads in the unstructured grid input for FVCOM """
@@ -49,6 +52,7 @@ def parseUnstructuredGridFVCOM(mesh):
     fileRead.close()
 
     triangles = []
+    nodes = []
     x = []
     y = []
     z = []
@@ -64,16 +68,18 @@ def parseUnstructuredGridFVCOM(mesh):
             x.append(float(ttt[1]))
             y.append(float(ttt[2]))
             z.append(float(ttt[3]))
+            nodes.append(int(ttt[0]))
 
     # Convert to numpy arrays.
     triangle = np.asarray(triangles)
+    nodes = np.asarray(nodes)
     X = np.asarray(x)
     Y = np.asarray(y)
     Z = np.asarray(z)
 
-    return(triangle, X, Y, Z)
+    return(triangle, nodes, X, Y, Z)
 
-def plotUnstructuredGrid(triangles, x, y, z):
+def plotUnstructuredGrid(triangles, nodes, x, y, z):
     """ Takes the output of parseUnstructuredGrid() and plots it """
 
     plt.figure()
@@ -83,20 +89,23 @@ def plotUnstructuredGrid(triangles, x, y, z):
         cb.set_label('Depth (m)')
 
     plt.triplot(x, y, triangles, '-', color=[0.6, 0.6, 0.6])
-    plt.gca().set_aspect('equal')
-    plt.gca().axis('tight')
-    plt.title('triplot of user-specified triangulation')
+    # Add the node numbers (this is slow)
+    for node in nodes:
+        plt.text(x[node-1], y[node-1], str(nodes[node-1]),
+            horizontalalignment='center', verticalalignment='center', size=8)
+    plt.axes().set_aspect('equal', 'datalim')
+    plt.title('Triplot of user-specified triangulation')
     plt.xlabel('x')
     plt.ylabel('y')
 
     plt.show()
 
 # An SMS grid
-#[triangles, x, y, z] = parseUnstructuredGridSMS('tamar_co2V4.2dm')
+#[triangles, nodes, x, y, z] = parseUnstructuredGridSMS('tamar_co2V4.2dm')
 # The model input grid
-[triangles, x, y, z] = parseUnstructuredGridFVCOM('co2_grd.dat')
+[triangles, nodes, x, y, z] = parseUnstructuredGridFVCOM('co2_grd.dat')
 
 # Let's have a look-see
-plotUnstructuredGrid(triangles, x, y, z)
+plotUnstructuredGrid(triangles, nodes, x, y, z)
 
 
