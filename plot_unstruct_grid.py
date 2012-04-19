@@ -79,7 +79,7 @@ def parseUnstructuredGridFVCOM(mesh):
 
     return(triangle, nodes, X, Y, Z)
 
-def plotUnstructuredGrid(triangles, nodes, x, y, z):
+def plotUnstructuredGrid(triangles, nodes, x, y, z, addText=False):
     """ Takes the output of parseUnstructuredGrid() and plots it """
 
     plt.figure()
@@ -90,9 +90,10 @@ def plotUnstructuredGrid(triangles, nodes, x, y, z):
 
     plt.triplot(x, y, triangles, '-', color=[0.6, 0.6, 0.6])
     # Add the node numbers (this is slow)
-    for node in nodes:
-        plt.text(x[node-1], y[node-1], str(nodes[node-1]),
-            horizontalalignment='center', verticalalignment='center', size=8)
+    if addText:
+        for node in nodes:
+            plt.text(x[node-1], y[node-1], str(nodes[node-1]),
+                horizontalalignment='center', verticalalignment='center', size=8)
     plt.axes().set_aspect('equal', 'datalim')
     plt.title('Triplot of user-specified triangulation')
     plt.xlabel('x')
