@@ -150,7 +150,8 @@ def read_arc_csv(file):
 
 if __name__ == '__main__':
 
-    # Analyse the files specified on the command line
+    # Analyse the files specified on the command line and output all results
+    # to a single file
     outFile = csv.writer(open('centroids_python.csv','w'))
 
     outFile.writerow(['year', 'eastings', 'northings'])
