@@ -109,4 +109,3 @@ if __name__ == '__main__':
     # Let's have a look-see
     plotUnstructuredGrid(triangles, nodes, x, y, z)
 
-
