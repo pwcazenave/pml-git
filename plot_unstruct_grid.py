@@ -100,12 +100,13 @@ def plotUnstructuredGrid(triangles, nodes, x, y, z):
 
     plt.show()
 
-# An SMS grid
-#[triangles, nodes, x, y, z] = parseUnstructuredGridSMS('tamar_co2V4.2dm')
-# The model input grid
-[triangles, nodes, x, y, z] = parseUnstructuredGridFVCOM('co2_grd.dat')
+if __name__ == '__main__':
+    # An SMS grid
+    #[triangles, nodes, x, y, z] = parseUnstructuredGridSMS('tamar_co2V4.2dm')
+    # The model input grid
+    [triangles, nodes, x, y, z] = parseUnstructuredGridFVCOM('co2_grd.dat')
 
-# Let's have a look-see
-plotUnstructuredGrid(triangles, nodes, x, y, z)
+    # Let's have a look-see
+    plotUnstructuredGrid(triangles, nodes, x, y, z)
 
 
