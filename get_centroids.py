@@ -153,6 +153,7 @@ if __name__ == '__main__':
     # Analyse the files specified on the command line
     outFile = csv.writer(open('centroids_python.csv','w'))
 
+    outFile.writerow(['year', 'eastings', 'northings'])
     for year in sys.argv[1:]:
         P = read_arc_csv(year)
         C = calculate_polygon_centroid(P)
