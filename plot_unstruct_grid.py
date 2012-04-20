@@ -3,7 +3,6 @@
 # Plot an unstructured grid.
 
 import matplotlib.pyplot as plt
-import matplotlib.tri as tri
 import numpy as np
 import math
 
@@ -79,14 +78,14 @@ def parseUnstructuredGridFVCOM(mesh):
 
     return(triangle, nodes, X, Y, Z)
 
-def plotUnstructuredGrid(triangles, nodes, x, y, z, addText=False):
+def plotUnstructuredGrid(triangles, nodes, x, y, z, colourLabel, addText=False):
     """ Takes the output of parseUnstructuredGrid() and plots it """
 
     plt.figure()
     if z.max()-z.min() != 0:
         plt.tripcolor(x, y, triangles, z, shading='interp')
         cb = plt.colorbar()
-        cb.set_label('Depth (m)')
+        cb.set_label(colourLabel)
 
     plt.triplot(x, y, triangles, '-', color=[0.6, 0.6, 0.6])
     # Add the node numbers (this is slow)
@@ -95,9 +94,9 @@ def plotUnstructuredGrid(triangles, nodes, x, y, z, addText=False):
             plt.text(x[node-1], y[node-1], str(nodes[node-1]),
                 horizontalalignment='center', verticalalignment='center', size=8)
     plt.axes().set_aspect('equal', 'datalim')
-    plt.title('Triplot of user-specified triangulation')
-    plt.xlabel('x')
-    plt.ylabel('y')
+    #plt.title('Triplot of user-specified triangulation')
+    #plt.xlabel('x')
+    #plt.ylabel('y')
 
     plt.show()
 
@@ -112,5 +111,5 @@ if __name__ == '__main__':
         [triangles, nodes, x, y, z] = parseUnstructuredGridFVCOM(grid)
 
         # Let's have a look-see
-        plotUnstructuredGrid(triangles, nodes, x, y, z)
+        plotUnstructuredGrid(triangles, nodes, x, y, z, 'Depth (m)')
 

@@ -4,7 +4,7 @@
 
 import time
 import numpy
-import sys
+from sys import argv
 import csv
 
 
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     outFile = csv.writer(open('centroids_python.csv','w'))
 
     outFile.writerow(['year', 'eastings', 'northings'])
-    for year in sys.argv[1:]:
+    for year in argv[1:]:
         P = read_arc_csv(year)
         C = calculate_polygon_centroid(P)
         outYear = numpy.array(float(year))
