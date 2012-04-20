@@ -87,7 +87,7 @@ def plotUnstructuredGrid(triangles, nodes, x, y, z, colourLabel, addText=False):
         cb = plt.colorbar()
         cb.set_label(colourLabel)
 
-    plt.triplot(x, y, triangles, '-', color=[0.6, 0.6, 0.6])
+    #plt.triplot(x, y, triangles, '-', color=[0.6, 0.6, 0.6])
     # Add the node numbers (this is slow)
     if addText:
         for node in nodes:
@@ -102,12 +102,12 @@ def plotUnstructuredGrid(triangles, nodes, x, y, z, colourLabel, addText=False):
 
 if __name__ == '__main__':
     
-    import sys
+    from sys import argv
 
     # An SMS grid
     #[triangles, nodes, x, y, z] = parseUnstructuredGridSMS('tamar_co2V4.2dm')
     # The model input grid
-    for grid in sys.argv[1:]:
+    for grid in argv[1:]:
         [triangles, nodes, x, y, z] = parseUnstructuredGridFVCOM(grid)
 
         # Let's have a look-see
