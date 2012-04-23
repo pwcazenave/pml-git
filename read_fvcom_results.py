@@ -1,77 +1,145 @@
 #!/usr/bin/env python
 
-from netCDF4 import Dataset, MFDataset
 import numpy as np
 import plot_unstruct_grid as gp
 import matplotlib.pyplot as plt
-
-def readFVCOM(file, varList, noisy=False):
-    """ 
-    Read in the FVCOM results file and spit out numpy arrays for 
-    each of the variables.
-    """
-
-    rootgrp = Dataset(file, 'r', format='NETCDF4')
-    mfdata = MFDataset(file)
-
-    FVCOM = {}
-    for key, var in rootgrp.variables.items():
-        if noisy:
-            print 'Found ' + key,
-
-        if key in varList:
-            if noisy:
-                print '(extracted)'
-            FVCOM[key] = mfdata.variables[key][:]
-        else:
-            if noisy:
-                print
-    
-    return FVCOM
-        
+from readFVCOM import readFVCOM
+from sys import argv
 
 
 if __name__ == '__main__':
 
-    from sys import argv
+    getVars = ['x', 'y', 'zeta', 'art1', 'h', 'time', 'TCO2', 'PH', 'DYE']
 
-    FVCOM = readFVCOM(argv[1], ['x', 'y', 'zeta', 'art1', 'h', 'zeta','time'])
-    Z = FVCOM['zeta'] # dim1=time, dim2=sigma, dim3=element
-    
-    # Get the unstructured grid
-    [triangles, nodes, x, y, z] = gp.parseUnstructuredGridFVCOM(argv[2])
+    # If running as a script:
+    #in1 = argv[1]
+    #in2 = argv[2]
+    #FVCOM = readFVCOM(in1, getVars)
+    #[triangles, nodes, x, y, z] = gp.parseUnstructuredGridFVCOM(argv[2])
+
+    # Running from ipython
+    # Riqui's
+    #base = '/data/medusa/rito/models/FVCOM/runCO2_leak/'
+    #in1 = base + '/output/co2_S5.1.1.2_0002.nc'
+    #in1 = base + '/output/co2_S5.1.2.1_0002.nc'
+    #in1 = base + '/output/co2_V5.1.2.1_0001.nc'
+    #in1 = base + '/output/co2_V7.1.1.1_0001.nc'
+    #in1 = base + '/output/co2_V7.1.2.1_0001.nc'
+    #in1 = base + '/output/co2_V7.1.2.1_0002.nc'
+    #in2 = base + '/input/inputV5/co2_grd.dat'
+    #in2 = base + '/input/inputV7/co2_grd.dat'
+
+    #base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
+    # Low Fine
+    #in1 = base + '/output/low_rate/co2_S7_low_run_0001.nc'
+    # High Fine
+    #in1 = base + '/output/high_rate/co2_S7_high_run_0001.nc'
+    # Fine grid
+    #in2 = base + '/input/configs/inputV7/co2_grd.dat'
+
+    base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
+    # Low Coarse
+    in1 = base + '/output/low_rate/co2_S5_low_run_0001.nc'
+    # High Coarse
+    #in1 = base + '/output/high_rate/co2_S5_high_run_0001.nc'
+    # Coarse grid
+    in2 = base + '/input/configs/inputV5/co2_grd.dat'
+
+
+    print 'Model result: ' + in1
+    print 'Input grid: ' + in2
+
+    # Read in the NetCDF file and the unstructured grid file
+    FVCOM = readFVCOM(in1, getVars)
+    [triangles, nodes, x, y, z] = gp.parseUnstructuredGridFVCOM(in2)
+
+    # Set the leak index point (one less than MATLAB)
+    if 'V5' in in1:
+        leakIdx = 1315
+    elif 'V7' in in1:
+        leakIdx = 8186
+    if 'S5' in in1:
+        leakIdx = 1315
+    elif 'S7' in in1:
+        leakIdx = 8186
+
+    # Sigma layer
+    layerIdx = 0
+
+    # Start index for each input file
+    #startIdx = 770 # Riqui's
+    startIdx = 40 # Mine
+
+    # Get the relevant variable
+    Z = FVCOM['DYE']
 
     # Calculate total CO2 input
-    #TCO2 = np.zeros(FVCOM['time'].shape)
-    #print FVCOM['zeta'].shape
-    #leakIdx = 1316
-    ##leakIdx = 8187
-    #dt = 3600.0
-    #for i in xrange(FVCOM['zeta'].shape[0]):
-    #    if i > 0:
-    #        #print FVCOM['zeta'][i,0,leakIdx].squeeze()
-    #        #TCO2[i] = TCO2[i-1] + (FVCOM['zeta'][i,0,leakIdx].squeeze() * dt)
-    #        TCO2[i] = TCO2[i-1] + (FVCOM['zeta'][i,leakIdx].squeeze() * dt)
+    if True:
+        TCO2 = np.zeros(FVCOM['time'].shape)
 
-    # Make a pretty picture
-#    plt.figure()
-#    plt.plot(FVCOM['time'],TCO2,'r-x')
-#    plt.xlabel('Time')
-#    plt.xlabel('CO2 input')
-#    plt.show()
+        print np.shape(TCO2)
+        dt = 3600.0
+
+        for i in xrange(startIdx, FVCOM['DYE'].shape[0]):
+            if i > 0:
+                #TCO2[i] = TCO2[i-1] + (FVCOM['zeta'][i,0,leakIdx].squeeze() * dt)
+                if len(np.shape(Z)) == 3:
+                    TCO2[i] = TCO2[i-1] + (FVCOM['DYE'][i,layerIdx,leakIdx].squeeze() * dt)
+                else:
+                    TCO2[i] = TCO2[i-1] + (FVCOM['DYE'][i,leakIdx].squeeze() * dt)
+
+                print "Total DYE: " + str(TCO2[i]) + "\n\tDYE: " + str(FVCOM['DYE'][i,0,leakIdx].squeeze())
+        print "\nTotal CO2: " + str(TCO2[-1])
+
+        # Make a pretty picture
+        plt.figure(100)
+        plt.clf()
+        #plt.plot(FVCOM['time'],TCO2,'r-x')
+        plt.plot(xrange(FVCOM['DYE'].shape[0]),TCO2,'r-x')
+        plt.xlabel('Time')
+        plt.ylabel('CO2 input')
+        plt.show()
 
     # Static figure
-    gp.plotUnstructuredGrid(triangles, nodes, FVCOM['x'], FVCOM['y'], np.squeeze(Z[48,:]), '$CO_{2}$')
+    #gp.plotUnstructuredGrid(triangles, nodes, FVCOM['x'], FVCOM['y'], np.squeeze(Z[47,:]), '')
 
     # Animated output (use ipython here)
-    #plt.figure()
-    #plt.tripcolor(FVCOM['x'], FVCOM['y'], triangles, np.squeeze(Z[0,1,:]), shading='interp')
-    #plt.draw()
-    #for i in xrange(len(FVCOM['time'])):
-    #    print i
-    #    plotZ = np.squeeze(Z[i,1,:]) # dim1=time, dim2=sigma, dim3=dye
-    #    # Update the plot
-    #    plt.clf() 
-    #    plt.tripcolor(FVCOM['x'], FVCOM['y'], triangles, plotZ, shading='interp')
-    #    plt.draw()
+    if True:
+        plt.figure(200)
+        plt.clf()
+        if len(np.shape(Z)) == 3:
+            plt.tripcolor(
+                FVCOM['x'],
+                FVCOM['y'],
+                triangles,
+                np.squeeze(Z[0,layerIdx,:]),
+                shading='interp')
+        else:
+            plt.tripcolor(
+                FVCOM['x'],
+                FVCOM['y'],
+                triangles,
+                np.squeeze(Z[0,:]),
+                shading='interp')
+
+        plt.axes().set_aspect('equal', 'datalim')
+        plt.colorbar()
+        #plt.clim(6, 8)
+        plt.draw()
+        for i in xrange(startIdx, len(FVCOM['time'])):
+            print str(i+1) + ' of ' + str(len(FVCOM['time']))
+            if len(np.shape(Z)) == 3:
+                plotZ = np.squeeze(Z[i,layerIdx,:]) # dim1=time, dim2=sigma, dim3=dye
+            else:
+                plotZ = np.squeeze(Z[i,:]) # dim1=time, dim2=dye
+
+            print plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std()
+            # Update the plot
+            plt.clf()
+            plt.tripcolor(FVCOM['x'], FVCOM['y'], triangles, plotZ, shading='interp')
+            plt.colorbar()
+            #plt.clim(-1.5, 1.5)
+            plt.axes().set_aspect('equal', 'datalim')
+            plt.draw()
+            plt.show()
 
