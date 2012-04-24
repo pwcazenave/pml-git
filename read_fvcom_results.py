@@ -9,7 +9,10 @@ from sys import argv
 
 if __name__ == '__main__':
 
-    getVars = ['x', 'y', 'zeta', 'art1', 'h', 'time', 'TCO2', 'PH', 'DYE']
+    # Be verbose?
+    noisy = True
+
+    getVars = ['x', 'y', 'xc', 'yc', 'zeta', 'art1', 'h', 'time', 'TCO2', 'PH', 'DYE', 'u']
 
     # If running as a script:
     #in1 = argv[1]
@@ -39,9 +42,10 @@ if __name__ == '__main__':
 
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
     # Low Coarse
-    in1 = base + '/output/low_rate/co2_S5_low_run_0001.nc'
+    #in1 = base + '/output/low_rate/co2_S5_low_run_0001.nc'
     # High Coarse
     #in1 = base + '/output/high_rate/co2_S5_high_run_0001.nc'
+    in1 = base + '/output/high_rate/co2_S1_0001.nc'
     # Coarse grid
     in2 = base + '/input/configs/inputV5/co2_grd.dat'
 
@@ -68,37 +72,46 @@ if __name__ == '__main__':
 
     # Start index for each input file
     #startIdx = 770 # Riqui's
-    startIdx = 40 # Mine
+    startIdx = 50 # Mine
 
     # Get the relevant variable
-    Z = FVCOM['DYE']
+    Z = FVCOM['zeta']
 
     # Calculate total CO2 input
-    if True:
+    if False:
         TCO2 = np.zeros(FVCOM['time'].shape)
 
         print np.shape(TCO2)
         dt = 3600.0
 
-        for i in xrange(startIdx, FVCOM['DYE'].shape[0]):
+        for i in xrange(startIdx, Z.shape[0]):
             if i > 0:
                 #TCO2[i] = TCO2[i-1] + (FVCOM['zeta'][i,0,leakIdx].squeeze() * dt)
                 if len(np.shape(Z)) == 3:
-                    TCO2[i] = TCO2[i-1] + (FVCOM['DYE'][i,layerIdx,leakIdx].squeeze() * dt)
+                    TCO2[i] = TCO2[i-1] + (Z[i,layerIdx,leakIdx].squeeze() * dt)
                 else:
-                    TCO2[i] = TCO2[i-1] + (FVCOM['DYE'][i,leakIdx].squeeze() * dt)
+                    TCO2[i] = TCO2[i-1] + (Z[i,leakIdx].squeeze() * dt)
 
-                print "Total DYE: " + str(TCO2[i]) + "\n\tDYE: " + str(FVCOM['DYE'][i,0,leakIdx].squeeze())
+                print "Total DYE: " + str(TCO2[i]) + "\n\tDYE: " + str(Z[i,0,leakIdx].squeeze())
+
+        # Scale to daily input. Input rate begins two days into model run
+        TCO2 = TCO2/(FVCOM['time'].max()-FVCOM['time'].min()-2)
+
         print "\nTotal CO2: " + str(TCO2[-1])
+
+        # Get the total CO2 in the system at the end of the simulation
+        totalCO2inSystem = np.sum(Z)
+        print totalCO2inSystem/float(60*60*24*14)
 
         # Make a pretty picture
         plt.figure(100)
         plt.clf()
         #plt.plot(FVCOM['time'],TCO2,'r-x')
-        plt.plot(xrange(FVCOM['DYE'].shape[0]),TCO2,'r-x')
+        plt.plot(xrange(Z.shape[0]),TCO2,'r-x')
         plt.xlabel('Time')
         plt.ylabel('CO2 input')
         plt.show()
+
 
     # Static figure
     #gp.plotUnstructuredGrid(triangles, nodes, FVCOM['x'], FVCOM['y'], np.squeeze(Z[47,:]), '')
@@ -127,13 +140,16 @@ if __name__ == '__main__':
         #plt.clim(6, 8)
         plt.draw()
         for i in xrange(startIdx, len(FVCOM['time'])):
-            print str(i+1) + ' of ' + str(len(FVCOM['time']))
             if len(np.shape(Z)) == 3:
                 plotZ = np.squeeze(Z[i,layerIdx,:]) # dim1=time, dim2=sigma, dim3=dye
             else:
                 plotZ = np.squeeze(Z[i,:]) # dim1=time, dim2=dye
 
-            print plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std()
+            if noisy:
+                print str(i+1) + ' of ' + str(len(FVCOM['time'])) + ' (date: ' + str(FVCOM['time'][i]) + ')'
+                print 'Min: %.2f Max: %.2f Range: %.2f Standard deviation: %.2f' % (plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std())
+            else:
+                print
             # Update the plot
             plt.clf()
             plt.tripcolor(FVCOM['x'], FVCOM['y'], triangles, plotZ, shading='interp')
