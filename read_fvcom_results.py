@@ -8,7 +8,19 @@ from sys import argv
 
 
 def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=False):
-    # Calculate total CO2 input and plot accordingly
+    """ 
+    Calculates total CO2 input and plots accordingly. Nothing too fancy. 
+
+    Give a NetCDF object as the first input (i.e. the output of readFVCOM()).
+    The variable of interest is defined as a string in varPlot and the 
+    summation begins at startIdx. The total is calculated at that layer 
+    layerIdx (you probably want this to be zero) and at the point leakIdx.
+
+    Plot is of the input at leakIdx for the duration of FVCOM['time'].
+    
+    Optionally specify noisy as True to get more verbose output. 
+
+    """
 
     Z = FVCOM[varPlot]
 
@@ -21,19 +33,23 @@ def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=Fal
             else:
                 TCO2[i] = TCO2[i-1] + (Z[i,leakIdx].squeeze() * dt)
 
-            if noisy:
-                print "Total " + varPlot + ": " + str(TCO2[i]) + "\n\t" + varPlot + ": " + str(Z[i,0,leakIdx].squeeze())
+            # Maybe a little too noisy...
+            #if noisy:
+            #    print "Total " + varPlot + ": " + str(TCO2[i]) + "\n\t" + varPlot + ": " + str(Z[i,0,leakIdx].squeeze())
 
     # Scale to daily input. Input rate begins two days into model run
-    TCO2Scaled = TCO2/(FVCOM['time'].max()-FVCOM['time'].min()-2)
-
-    if noisy:
-        print "\nTotal input per day: " + str(TCO2Scaled[-1])
+    nDays = FVCOM['time'].max()-FVCOM['time'].min()-2
+    TCO2Scaled = TCO2/nDays
 
     # Get the total CO2 in the system at the end of the simulation
-    totalCO2inSystem = np.sum(Z)
+    totalCO2inSystem = np.sum(Z[np.isfinite(Z)]) # skip NaNs
+
+    # Some results
     if noisy:
-        print "Total in the system: " + str(totalCO2inSystem)
+        print "Leak:\t\t%i\nLayer:\t\t%i\nStart:\t\t%i" % (leakIdx, layerIdx, startIdx)
+        print "\nTotal input per day:\t\t%.2f" % TCO2Scaled[-1]
+        print "Total in the system:\t\t%.2f" % totalCO2inSystem
+        print "Total in the system per day:\t%.2f" % (totalCO2inSystem/nDays)
 
     # Make a pretty picture
     plt.figure(100)
@@ -44,10 +60,31 @@ def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=Fal
     plt.ylabel(varPlot + ' input')
     plt.show()
 
-def animateModelOutput(FVCOM, varPlot, startIdx, layerIdx, noisy=False):
-    # Animated output (use ipython here)
+
+
+def animateModelOutput(FVCOM, varPlot, startIdx, skipIdx, layerIdx, addVectors=False, noisy=False):
+    """ 
+    Animated model output (for use in ipython).
+
+    Give a NetCDF object as the first input (i.e. the output of readFVCOM()). 
+    Specify the variable of interest as a string (e.g. 'DYE'). This is case 
+    sensitive. Specify a starting index, a skip index of n to skip n time steps
+    in the animation. The layerIdx is either the sigma layer to plot or, if 
+    negative, means the depth averaged value is calcualted. 
+
+    Optionally add current vectors to the plot which will be colour coded by 
+    the magnitude. 
+
+    Noisy, if True, turns on printing of various bits of potentially 
+    relevant information to the console.
+    
+    """
 
     Z = FVCOM[varPlot]
+
+    if layerIdx < 0:
+        # Depth average the input data
+        Z = dataAverage(Z, axis=1)
 
     plt.figure(200)
     plt.clf()
@@ -70,17 +107,12 @@ def animateModelOutput(FVCOM, varPlot, startIdx, layerIdx, noisy=False):
     plt.colorbar()
     #plt.clim(6, 8)
     plt.draw()
-    for i in xrange(startIdx, len(FVCOM['time'])):
+    for i in xrange(startIdx, len(FVCOM['time']), skipIdx):
         if len(np.shape(Z)) == 3:
             plotZ = np.squeeze(Z[i,layerIdx,:]) # dim1=time, dim2=sigma, dim3=dye
         else:
             plotZ = np.squeeze(Z[i,:]) # dim1=time, dim2=dye
 
-        if noisy:
-            print str(i+1) + ' of ' + str(len(FVCOM['time'])) + ' (date: ' + str(FVCOM['time'][i]) + ')'
-            print 'Min: %.2f Max: %.2f Range: %.2f Standard deviation: %.2f' % (plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std())
-        else:
-            print
         # Update the plot
         plt.clf()
         plt.tripcolor(FVCOM['x'], FVCOM['y'], triangles, plotZ, shading='interp')
@@ -88,19 +120,32 @@ def animateModelOutput(FVCOM, varPlot, startIdx, layerIdx, noisy=False):
         #plt.clim(-1.5, 1.5)
         # Add the vectors
         plt.hold('on')
-        UU = np.squeeze(FVCOM['u'][i,layerIdx,:])
-        VV = np.squeeze(FVCOM['v'][i,layerIdx,:])
-        CC = np.sqrt(np.power(UU,2)+np.power(VV,2))
-        Q = plt.quiver(FVCOM['xc'], FVCOM['yc'], UU, VV, CC, edgecolors=('k'))
-        plt.quiverkey(Q, 0.5, 0.92, 1, r'$2 ms^{-1}$', labelpos='W')
+        if addVectors:
+            UU = np.squeeze(FVCOM['u'][i,layerIdx,:])
+            VV = np.squeeze(FVCOM['v'][i,layerIdx,:])
+            CC = np.sqrt(np.power(UU,2)+np.power(VV,2))
+            Q = plt.quiver(FVCOM['xc'], FVCOM['yc'], UU, VV, CC, scale=10)
+            plt.quiverkey(Q, 0.5, 0.92, 1, r'$1 ms^{-1}$', labelpos='W')
         plt.axes().set_aspect('equal', 'datalim')
         plt.draw()
         plt.show()
 
+        # Some useful output
+        if noisy:
+            print '%i of %i (date %.2f)' % (str(i+1), str(len(FVCOM['time'])), str(FVCOM['time'][i]))
+            print 'Min: %.2f Max: %.2f Range: %.2f Standard deviation: %.2f' % (plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std())
+        else:
+            print
 
-def addVectors(x, y, u, v, scale, noisy=False):
-    # Little function to be called within another to add vectors to the plot
-    plt.quiver(x, y, u, v)
+
+def dataAverage(data, **args):
+    """ Depth average a given FVCOM output data set along a specified axis """
+    
+    dataMask = np.ma.masked_array(data,np.isnan(data))
+    dataMeaned = np.ma.filled(dataMask.mean(**args), fill_value=np.nan).squeeze()
+
+    return dataMeaned
+
 
 
 
@@ -151,9 +196,6 @@ if __name__ == '__main__':
     #in2 = base + '/input/configs/inputV5/co2_grd.dat'
     #in2 = base + '/input/configs/inputV7/co2_grd.dat'
 
-    print 'Model result: ' + in1
-    print 'Input grid: ' + in2
-
     # Read in the NetCDF file and the unstructured grid file
     FVCOM = readFVCOM(in1, getVars, noisy)
     [triangles, nodes, x, y, z] = gp.parseUnstructuredGridFVCOM(in2)
@@ -179,12 +221,28 @@ if __name__ == '__main__':
     #startIdx = 770 # Riqui's
     startIdx = 48 # Mine
 
+    # Skip value for animation
+    skipIdx = 5
+
     # Do total CO2 analysis
-    dt = 3600.0
-    #calculateTotalCO2(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
+    dt = (FVCOM['time'][1]-FVCOM['time'][0])*60*60*24
+
+    if noisy:
+        # Some basic info
+        print 'Model result:\t%s' % in1
+        print 'Input grid:\t%s' % in2
+        # Some more complex info
+        try:
+            (tt, ll, ee) = np.shape(FVCOM['DYE'])
+            print 'Time steps:\t%i (%.2f days) \nLayers:\t\t%i\nElements:\t%i' % (tt, (tt*dt)/86400.0, ll, ee)
+        except KeyError:
+            print 'Key \'DYE\' not found in FVCOM'
+
+    calculateTotalCO2(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
 
     # Animate some variable (ipython only)
-    animateModelOutput(FVCOM, 'DYE', startIdx, layerIdx, noisy)
+    addVectors = False
+    #animateModelOutput(FVCOM, 'DYE', startIdx, skipIdx, layerIdx, addVectors, noisy)
 
     # Static figure
     #gp.plotUnstructuredGrid(triangles, nodes, FVCOM['x'], FVCOM['y'], np.squeeze(Z[47,:]), '')

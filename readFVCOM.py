@@ -10,7 +10,7 @@ def readFVCOM(file, varList, noisy=False):
     mfdata = MFDataset(file)
 
     if noisy:
-        print rootgrp.file_format
+        print "File format: " + rootgrp.file_format
 
     FVCOM = {}
     for key, var in rootgrp.variables.items():
