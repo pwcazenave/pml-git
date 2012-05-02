@@ -60,6 +60,7 @@ def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=Fal
     plt.ylabel(varPlot + ' input')
     plt.show()
 
+    return totalCO2inSystem
 
 
 def animateModelOutput(FVCOM, varPlot, startIdx, skipIdx, layerIdx, addVectors=False, noisy=False):
@@ -147,6 +148,42 @@ def dataAverage(data, **args):
     return dataMeaned
 
 
+def CO2LeakBudget(FVCOM, startDay):
+    """ Replicate Riqui's CO2leak_budget.m code """
+
+    timeSteps = np.r_[0:25]+startDay # -1 because indexing starts at zero
+    CO2 = np.ones(len(timeSteps))*np.nan
+    CO2Leak = np.ones(np.shape(CO2))*np.nan
+
+    for i, tt in enumerate(timeSteps):
+        dump = FVCOM['h']+FVCOM['zeta'][tt,:]
+        dz = np.abs(np.diff(FVCOM['siglev'], axis=0))
+        data = FVCOM['DYE'][tt,:,:]*dz
+        data = np.sum(data,axis=0)
+        CO2[i] = np.sum(data*FVCOM['art1']*dump)
+        CO2Leak[i] = np.sum(data[leakIdx]*FVCOM['art1'][leakIdx])
+
+    return CO2, CO2Leak
+
+
+def unstructuredGridVolume(FVCOM):
+    """ Calculate the volume for every cell in the unstructured grid """
+    elemAreas = FVCOM['art1']
+    elemDepths = FVCOM['h']
+    elemTides = FVCOM['zeta']
+    elemThickness = np.abs(np.diff(FVCOM['siglev'], axis=0))
+
+    # Get volumes for each cell
+    Z = FVCOM['DYE']
+    (tt, ll, xx) = np.shape(Z) # time, layers, node
+    allVolumes = np.zeros([tt, ll, xx])*np.nan
+    for i in xrange(tt):
+        allVolumes[i,:,:] = ((elemDepths + elemTides[i,:]) * elemThickness) * elemAreas
+
+    return allVolumes
+
+
+
 
 
 if __name__ == '__main__':
@@ -191,10 +228,8 @@ if __name__ == '__main__':
     #in2 = base + '/input/configs/inputV5/co2_grd.dat'
 
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
-    # Low Coarse
-    #in1 = base + '/output/low_rate/co2_S5_run_0001.nc'
-    # High Coarse
-    in1 = base + '/output/rate_ranges/co2_S1_0001.nc'
+    # Coarse
+    in1 = base + '/output/rate_ranges/11days/co2_S5_0.000001_run_0001.nc'
     # Coarse grid
     in2 = base + '/input/configs/inputV5/co2_grd.dat'
 
@@ -234,7 +269,6 @@ if __name__ == '__main__':
     # Skip value for animation
     skipIdx = 5
 
-    # Do total CO2 analysis
     dt = (FVCOM['time'][1]-FVCOM['time'][0])*60*60*24
 
     if noisy:
@@ -248,42 +282,21 @@ if __name__ == '__main__':
         except KeyError:
             print 'Key \'DYE\' not found in FVCOM'
 
-    calculateTotalCO2(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
+    # Do total CO2 analysis
+    totalCO2inSystem = calculateTotalCO2(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
+    print totalCO2inSystem
 
-    # All the DYE for each time step. Need to multiply by the volume of each 
-    # element in the domain first.
-    elemAreas = FVCOM['art1']
-    elemDepths = FVCOM['h']
-    elemTides = FVCOM['zeta']
-    elemThickness = np.abs(np.diff(FVCOM['siglev'], axis=0))
-
-    # Get volumes for each cell
-    Z = FVCOM['DYE']
-    (tt, ll, xx) = np.shape(Z) # time, layers, node
-    allVolumes = np.zeros([tt, ll, xx])*np.nan
-    for i in xrange(tt):
-        allVolumes[i,:,:] = ((elemDepths + elemTides[i,:]) * elemThickness) * elemAreas
-
-    # Replicate Riqui's CO2leak_budget.m code
+    # Calculate the total CO2 in the system using Riqui's algorithm
+    allVolumes = unstructuredGridVolume(FVCOM)
     startDay = (5*24)
-    timeSteps = np.r_[1:25]+startDay-1 # -1 because indexing starts at zero
-    CO2 = np.ones(len(timeSteps))*np.nan
-    CO2leak = np.ones(np.shape(CO2))*np.nan
-    for i, tt in enumerate(timeSteps):
-        dump = FVCOM['h']+FVCOM['zeta'][tt,:]
-        dz = np.abs(np.diff(FVCOM['siglev'], axis=0))
-        data = FVCOM['DYE'][tt,:,:]*dz
-        data = np.sum(data,axis=0)
-        CO2[i] = np.sum(data*FVCOM['art1']*dump)
-        CO2leak[i] = np.sum(data[leakIdx]*FVCOM['art1'][leakIdx])
-
+    CO2, CO2Leak = CO2LeakBudget(FVCOM, startDay)
 
     # Get the concentration for the model
-    concZ = Z/allVolumes
+    concZ = FVCOM['DYE']/allVolumes
     # Get the total concentration at n=72 (i.e. 24 hours after DYE release)
-    dayConcZ = np.sum(concZ[timeSteps,:,:])
+    dayConcZ = np.sum(concZ[np.r_[0:25]+startDay,:,:])
     # Scale the DYE by the volumes
-    scaledZ = Z*allVolumes
+    scaledZ = FVCOM['DYE']*allVolumes
 
     sumZ = np.sum(scaledZ, axis=1)
     totalZ = np.sum(sumZ, axis=1)
