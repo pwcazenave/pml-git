@@ -89,24 +89,24 @@ def animateModelOutput(FVCOM, varPlot, startIdx, skipIdx, layerIdx, addVectors=F
     plt.figure(200)
     plt.clf()
     if len(np.shape(Z)) == 3:
-        plt.tripcolor(
-            FVCOM['x'],
-            FVCOM['y'],
-            triangles,
-            np.squeeze(Z[0,layerIdx,:]),
-            shading='interp')
+        # Start animation at the beginning of the array or at startIdx-1, 
+        # whichever is larger. 
+        plotZ = np.squeeze(Z[np.max([startIdx-1, 0]),layerIdx,:])
     else:
-        plt.tripcolor(
-            FVCOM['x'],
-            FVCOM['y'],
-            triangles,
-            np.squeeze(Z[0,:]),
-            shading='interp')
-
+        plotZ = np.squeeze(Z[np.max([startIdx-1, 0]),:])
+        
+    # Initialise the plot
+    plt.tripcolor(
+        FVCOM['x'],
+        FVCOM['y'],
+        triangles,
+        plotZ,
+        shading='interp')
     plt.axes().set_aspect('equal', 'datalim')
     plt.colorbar()
     #plt.clim(6, 8)
     plt.draw()
+
     for i in xrange(startIdx, len(FVCOM['time']), skipIdx):
         if len(np.shape(Z)) == 3:
             plotZ = np.squeeze(Z[i,layerIdx,:]) # dim1=time, dim2=sigma, dim3=dye
@@ -132,7 +132,7 @@ def animateModelOutput(FVCOM, varPlot, startIdx, skipIdx, layerIdx, addVectors=F
 
         # Some useful output
         if noisy:
-            print '%i of %i (date %.2f)' % (str(i+1), str(len(FVCOM['time'])), str(FVCOM['time'][i]))
+            print '%i of %i (date %.2f)' % (i+1, len(FVCOM['time']), FVCOM['time'][i])
             print 'Min: %.2f Max: %.2f Range: %.2f Standard deviation: %.2f' % (plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std())
         else:
             print
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     # Be verbose?
     noisy = True
 
-    getVars = ['x', 'y', 'xc', 'yc', 'zeta', 'art1', 'h', 'time', 'TCO2', 'PH', 'DYE', 'u', 'v']
+    getVars = ['x', 'y', 'xc', 'yc', 'zeta', 'art1', 'h', 'time', 'TCO2', 'PH', 'DYE', 'siglev']
 
     # If running as a script:
     #in1 = argv[1]
@@ -182,13 +182,23 @@ if __name__ == '__main__':
     # Fine grid
     #in2 = base + '/input/configs/inputV7/co2_grd.dat'
 
+    #base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
+    # Low Coarse
+    #in1 = base + '/output/low_rate/co2_S5_run_0001.nc'
+    # High Coarse
+    #in1 = base + '/output/high_rate/co2_S5_run_0001.nc'
+    # Coarse grid
+    #in2 = base + '/input/configs/inputV5/co2_grd.dat'
+
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
     # Low Coarse
     #in1 = base + '/output/low_rate/co2_S5_run_0001.nc'
     # High Coarse
-    in1 = base + '/output/high_rate/co2_S5_run_0001.nc'
+    in1 = base + '/output/rate_ranges/co2_S1_0001.nc'
     # Coarse grid
     in2 = base + '/input/configs/inputV5/co2_grd.dat'
+
+    print in1
 
     # Currently running
     #base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
@@ -219,7 +229,7 @@ if __name__ == '__main__':
 
     # Start index for each input file
     #startIdx = 770 # Riqui's
-    startIdx = 48 # Mine
+    startIdx = 120 # Mine
 
     # Skip value for animation
     skipIdx = 5
@@ -233,12 +243,53 @@ if __name__ == '__main__':
         print 'Input grid:\t%s' % in2
         # Some more complex info
         try:
-            (tt, ll, ee) = np.shape(FVCOM['DYE'])
-            print 'Time steps:\t%i (%.2f days) \nLayers:\t\t%i\nElements:\t%i' % (tt, (tt*dt)/86400.0, ll, ee)
+            (tt, ll, xx) = np.shape(FVCOM['DYE'])
+            print 'Time steps:\t%i (%.2f days) \nLayers:\t\t%i\nElements:\t%i' % (tt, (tt*dt)/86400.0, ll, xx)
         except KeyError:
             print 'Key \'DYE\' not found in FVCOM'
 
     calculateTotalCO2(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
+
+    # All the DYE for each time step. Need to multiply by the volume of each 
+    # element in the domain first.
+    elemAreas = FVCOM['art1']
+    elemDepths = FVCOM['h']
+    elemTides = FVCOM['zeta']
+    elemThickness = np.abs(np.diff(FVCOM['siglev'], axis=0))
+
+    # Get volumes for each cell
+    Z = FVCOM['DYE']
+    (tt, ll, xx) = np.shape(Z) # time, layers, node
+    allVolumes = np.zeros([tt, ll, xx])*np.nan
+    for i in xrange(tt):
+        allVolumes[i,:,:] = ((elemDepths + elemTides[i,:]) * elemThickness) * elemAreas
+
+    # Replicate Riqui's CO2leak_budget.m code
+    startDay = (5*24)
+    timeSteps = np.r_[1:25]+startDay-1 # -1 because indexing starts at zero
+    CO2 = np.ones(len(timeSteps))*np.nan
+    CO2leak = np.ones(np.shape(CO2))*np.nan
+    for i, tt in enumerate(timeSteps):
+        dump = FVCOM['h']+FVCOM['zeta'][tt,:]
+        dz = np.abs(np.diff(FVCOM['siglev'], axis=0))
+        data = FVCOM['DYE'][tt,:,:]*dz
+        data = np.sum(data,axis=0)
+        CO2[i] = np.sum(data*FVCOM['art1']*dump)
+        CO2leak[i] = np.sum(data[leakIdx]*FVCOM['art1'][leakIdx])
+
+
+    # Get the concentration for the model
+    concZ = Z/allVolumes
+    # Get the total concentration at n=72 (i.e. 24 hours after DYE release)
+    dayConcZ = np.sum(concZ[timeSteps,:,:])
+    # Scale the DYE by the volumes
+    scaledZ = Z*allVolumes
+
+    sumZ = np.sum(scaledZ, axis=1)
+    totalZ = np.sum(sumZ, axis=1)
+    print 'Total DYE at day %i: %.2f' % (startDay, totalZ[startDay])
+    plt.figure()
+    plt.plot(FVCOM['time'], totalZ, '-x')
 
     # Animate some variable (ipython only)
     addVectors = False
@@ -246,5 +297,4 @@ if __name__ == '__main__':
 
     # Static figure
     #gp.plotUnstructuredGrid(triangles, nodes, FVCOM['x'], FVCOM['y'], np.squeeze(Z[47,:]), '')
-
 
