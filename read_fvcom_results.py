@@ -8,17 +8,17 @@ from sys import argv
 
 
 def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=False):
-    """ 
-    Calculates total CO2 input and plots accordingly. Nothing too fancy. 
+    """
+    Calculates total CO2 input and plots accordingly. Nothing too fancy.
 
     Give a NetCDF object as the first input (i.e. the output of readFVCOM()).
-    The variable of interest is defined as a string in varPlot and the 
-    summation begins at startIdx. The total is calculated at that layer 
+    The variable of interest is defined as a string in varPlot and the
+    summation begins at startIdx. The total is calculated at that layer
     layerIdx (you probably want this to be zero) and at the point leakIdx.
 
     Plot is of the input at leakIdx for the duration of FVCOM['time'].
-    
-    Optionally specify noisy as True to get more verbose output. 
+
+    Optionally specify noisy as True to get more verbose output.
 
     FIXME(pica) This doesn't work as is.
 
@@ -66,21 +66,21 @@ def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=Fal
 
 
 def animateModelOutput(FVCOM, varPlot, startIdx, skipIdx, layerIdx, addVectors=False, noisy=False):
-    """ 
+    """
     Animated model output (for use in ipython).
 
-    Give a NetCDF object as the first input (i.e. the output of readFVCOM()). 
-    Specify the variable of interest as a string (e.g. 'DYE'). This is case 
+    Give a NetCDF object as the first input (i.e. the output of readFVCOM()).
+    Specify the variable of interest as a string (e.g. 'DYE'). This is case
     sensitive. Specify a starting index, a skip index of n to skip n time steps
-    in the animation. The layerIdx is either the sigma layer to plot or, if 
+    in the animation. The layerIdx is either the sigma layer to plot or, if
     negative, means the depth averaged value is calcualted. 
 
-    Optionally add current vectors to the plot which will be colour coded by 
-    the magnitude. 
+    Optionally add current vectors to the plot which will be colour coded by
+    the magnitude.
 
-    Noisy, if True, turns on printing of various bits of potentially 
+    Noisy, if True, turns on printing of various bits of potentially
     relevant information to the console.
-    
+
     """
 
     Z = FVCOM[varPlot]
@@ -91,32 +91,34 @@ def animateModelOutput(FVCOM, varPlot, startIdx, skipIdx, layerIdx, addVectors=F
 
     plt.figure(200)
     plt.clf()
-    if len(np.shape(Z)) == 3:
-        # Start animation at the beginning of the array or at startIdx-1, 
-        # whichever is larger. 
-        plotZ = np.squeeze(Z[np.max([startIdx-1, 0]),layerIdx,:])
-    else:
-        plotZ = np.squeeze(Z[np.max([startIdx-1, 0]),:])
-        
+
     # Initialise the plot
     plt.tripcolor(
         FVCOM['x'],
         FVCOM['y'],
         triangles,
-        plotZ,
+        np.zeros(np.shape(FVCOM['x'])),
         shading='interp')
     plt.axes().set_aspect('equal', 'datalim')
     plt.colorbar()
     #plt.clim(6, 8)
     plt.draw()
 
-    # len(FVCOM['time'])+1 so range goes upto the length so that when i-1 is called.
-    # we get the last time step included in the animation.
+    # len(FVCOM['time'])+1 so range goes upto the length so that when i-1 is
+    # called we get the last time step included in the animation.
     for i in xrange(startIdx, len(FVCOM['time'])+1, skipIdx):
-        if len(np.shape(Z)) == 3:
-            plotZ = np.squeeze(Z[i-1,layerIdx,:]) # dim1=time, dim2=sigma, dim3=dye
+        # Start animation at the beginning of the array or at startIdx-1
+        # (i.e. i-2), whichever is larger.
+        if i == startIdx:
+            getIdx = np.max([startIdx-1, 0])
         else:
-            plotZ = np.squeeze(Z[i-1,:]) # dim1=time, dim2=dye
+            getIdx = i-1
+
+        if len(np.shape(Z)) == 3: # dim1=time, dim2=sigma, dim3=dye
+            plotZ = np.squeeze(Z[getIdx,layerIdx,:])
+        else: # dim1=time, dim2=dye (depth averaged)
+            # Can't do difference here because we've depth averaged
+            plotZ = np.squeeze(Z[getIdx,:])
 
         # Update the plot
         plt.clf()
@@ -138,14 +140,14 @@ def animateModelOutput(FVCOM, varPlot, startIdx, skipIdx, layerIdx, addVectors=F
         # Some useful output
         if noisy:
             print '%i of %i (date %.2f)' % (i, len(FVCOM['time']), FVCOM['time'][i-1])
-            print 'Min: %.2f Max: %.2f Range: %.2f Standard deviation: %.2f' % (plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std())
+            print 'Min: %g Max: %g Range: %g Standard deviation: %g' % (plotZ.min(), plotZ.max(), plotZ.max()-plotZ.min(), plotZ.std())
         else:
             print
 
 
 def dataAverage(data, **args):
     """ Depth average a given FVCOM output data set along a specified axis """
-    
+
     dataMask = np.ma.masked_array(data,np.isnan(data))
     dataMeaned = np.ma.filled(dataMask.mean(**args), fill_value=np.nan).squeeze()
 
@@ -153,11 +155,11 @@ def dataAverage(data, **args):
 
 
 def CO2LeakBudget(FVCOM, startDay):
-    """ 
+    """
     Replicate Riqui's CO2leak_budget.m code.
 
     FIXME(pica) Not yet working (and probably doesn't match Riqui's code...
-    
+
     """
 
     timeSteps = np.r_[0:25]+startDay # -1 because indexing starts at zero
@@ -172,7 +174,9 @@ def CO2LeakBudget(FVCOM, startDay):
         CO2[i] = np.sum(data*FVCOM['art1']*dump)
         CO2Leak[i] = np.sum(data[leakIdx]*FVCOM['art1'][leakIdx])
 
-    return CO2, CO2Leak
+    maxCO2 = np.max(CO2)
+
+    return CO2, CO2Leak, maxCO2
 
 
 def unstructuredGridVolume(FVCOM):
@@ -238,7 +242,7 @@ if __name__ == '__main__':
 
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
     # Coarse
-    in1 = base + '/output/rate_ranges/11days/co2_S5_0.000001_run_0001.nc'
+    in1 = base + '/output/rate_ranges/11days/co2_S5_1000_run_0001.nc'
     # Coarse grid
     in2 = base + '/input/configs/inputV5/co2_grd.dat'
 
@@ -276,7 +280,7 @@ if __name__ == '__main__':
     startIdx = 120 # Mine
 
     # Skip value for animation (not zero)
-    skipIdx = 1
+    skipIdx = 5
 
     dt = (FVCOM['time'][1]-FVCOM['time'][0])*60*60*24
 
@@ -298,7 +302,7 @@ if __name__ == '__main__':
         # Calculate the total CO2 in the system using Riqui's algorithm
         allVolumes = unstructuredGridVolume(FVCOM)
         startDay = (5*24)
-        CO2, CO2Leak = CO2LeakBudget(FVCOM, startDay)
+        CO2, CO2Leak, maxCO2[aa] = CO2LeakBudget(FVCOM, startDay)
 
         # Get the concentration for the model
         concZ = FVCOM['DYE']/allVolumes
