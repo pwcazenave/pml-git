@@ -302,7 +302,7 @@ if __name__ == '__main__':
         # at once. 
 
         # Do total CO2 analysis
-        totalCO2inSystem = calculateTotalCO3(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
+        totalCO2inSystem = calculateTotalCO2(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
 
         # Calculate the total CO2 in the system using Riqui's algorithm
         allVolumes = unstructuredGridVolume(FVCOM)
