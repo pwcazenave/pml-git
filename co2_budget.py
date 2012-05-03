@@ -31,10 +31,10 @@ if __name__ == '__main__':
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
 
     # Get a list of files
-    fileNames = glob(base + '/output/rate_ranges/11days/co2_S5_*_0001.nc')
+    fileNames = glob(base + '/output/rate_ranges/11days/co2_S7_*_0001.nc')
 
     # Coarse grid
-    in2 = base + '/input/configs/inputV5/co2_grd.dat'
+    in2 = base + '/input/configs/inputV7/co2_grd.dat'
 
     # Output for calculated CO2
     maxCO2 = np.zeros(np.shape(fileNames))*np.nan
