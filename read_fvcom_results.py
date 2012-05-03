@@ -154,15 +154,15 @@ def dataAverage(data, **args):
     return dataMeaned
 
 
-def CO2LeakBudget(FVCOM, startDay):
+def CO2LeakBudget(FVCOM, leakIdx, startDay):
     """
     Replicate Riqui's CO2leak_budget.m code.
 
-    FIXME(pica) Not yet working (and probably doesn't match Riqui's code...
+    FIXME(pica) Not yet working (and probably doesn't match Riqui's code...)
 
     """
 
-    timeSteps = np.r_[0:25]+startDay # -1 because indexing starts at zero
+    timeSteps = np.r_[0:25]+startDay
     CO2 = np.ones(len(timeSteps))*np.nan
     CO2Leak = np.ones(np.shape(CO2))*np.nan
 
@@ -170,7 +170,7 @@ def CO2LeakBudget(FVCOM, startDay):
         dump = FVCOM['h']+FVCOM['zeta'][tt,:]
         dz = np.abs(np.diff(FVCOM['siglev'], axis=0))
         data = FVCOM['DYE'][tt,:,:]*dz
-        data = np.sum(data,axis=0)
+        data = np.sum(data, axis=0)
         CO2[i] = np.sum(data*FVCOM['art1']*dump)
         CO2Leak[i] = np.sum(data[leakIdx]*FVCOM['art1'][leakIdx])
 
@@ -242,11 +242,13 @@ if __name__ == '__main__':
 
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
     # Coarse
-    in1 = base + '/output/rate_ranges/11days/co2_S5_1000_run_0001.nc'
+    #in1 = base + '/output/rate_ranges/11days/co2_S5_1000_run_0001.nc'
     # Coarse grid
-    in2 = base + '/input/configs/inputV5/co2_grd.dat'
-
-    print in1
+    #in2 = base + '/input/configs/inputV5/co2_grd.dat'
+    # Fine
+    in1 = base + '/output/rate_ranges/11days/co2_S7_0.000001_run_0001.nc'
+    # Coarse grid
+    in2 = base + '/input/configs/inputV7/co2_grd.dat'
 
     # Currently running
     #base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
@@ -296,13 +298,16 @@ if __name__ == '__main__':
             print 'Key \'DYE\' not found in FVCOM'
 
     if False:
+        # This has been split off into CO2_budget.py to analyse multiple files
+        # at once. 
+
         # Do total CO2 analysis
-        totalCO2inSystem = calculateTotalCO2(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
+        totalCO2inSystem = calculateTotalCO3(FVCOM, 'DYE', startIdx, layerIdx, leakIdx, dt, noisy)
 
         # Calculate the total CO2 in the system using Riqui's algorithm
         allVolumes = unstructuredGridVolume(FVCOM)
         startDay = (5*24)
-        CO2, CO2Leak, maxCO2[aa] = CO2LeakBudget(FVCOM, startDay)
+        CO2, CO2Leak, maxCO2[aa] = CO2LeakBudget(FVCOM, leakIdx, startDay)
 
         # Get the concentration for the model
         concZ = FVCOM['DYE']/allVolumes
