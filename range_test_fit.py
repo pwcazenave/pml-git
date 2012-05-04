@@ -18,29 +18,38 @@ def calculateRegression(x, y, type):
         1. Linear (lin)
         2. Log (log)
         3. Exponential (exp)
+        4. Linear through zero (lin0)
     """
 
+    import numpy as np
     from scipy import stats
-    from numpy import log10
 
     # Check the smallest value in x or y isn't below ~1x10-7 otherwise
     # we hit numerical instabilities.
     xFactorFix, xFactor = False, 0
     yFactorFix, yFactor = False, 0
     if min(x) < 2e-7:
+        print 'Scaling x-data to improve numerical stability'
         x, xFactor, xFactorFix = fixRange(x)
     if min(y) < 2e-7:
+        print 'Scaling y-data to improve numerical stability'
         y, yFactor, yFactorFix = fixRange(y)
 
 
-    if type is 'lin':
+    if type is 'lin0':
+        xf = x
+        x = x[:,np.newaxis] # make a singleton extra dimension
+        m, _, _, _ = np.linalg.lstsq(x, y)
+        c, r, p = 0, np.nan, np.nan
+    elif type is 'lin':
+        print 'lin'
         m, c, r, p, std_err = stats.linregress(x, y)
         xf = x
     elif type is 'log':
-        m, c, r, p, std_err = stats.linregress(log10(x),y)
-        xf = log10(x)
+        m, c, r, p, std_err = stats.linregress(np.log10(x),y)
+        xf = np.log10(x)
     elif type is 'exp':
-        m, c, r, p, std_err = stats.linregress(x,log10(y))
+        m, c, r, p, std_err = stats.linregress(x,np.log10(y))
         xf = x
     else:
         raise ValueError('Unknown regression type')
@@ -52,7 +61,7 @@ def calculateRegression(x, y, type):
     if yFactorFix:
         yf = yf / 10**yFactor
 
-    return xf, yf
+    return xf, yf, m, c, r
 
 
 def calculatePolyfit(x, y):
