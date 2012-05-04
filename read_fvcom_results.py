@@ -49,7 +49,7 @@ def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=Fal
     # Some results
     if noisy:
         print "Leak:\t\t%i\nLayer:\t\t%i\nStart:\t\t%i" % (leakIdx, layerIdx, startIdx)
-        print "\nTotal input per day:\t\t%.2f" % TCO2Scaled[-1]
+        print "Total input per day:\t\t%.2f" % TCO2Scaled[-1]
         print "Total in the system:\t\t%.2f" % totalCO2inSystem
         print "Total in the system per day:\t%.2f" % (totalCO2inSystem/nDays)
 
@@ -242,13 +242,13 @@ if __name__ == '__main__':
 
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
     # Coarse
-    #in1 = base + '/output/rate_ranges/11days/co2_S5_1000_run_0001.nc'
+    in1 = base + '/output/rate_ranges/11days/co2_S5_high_run_0001.nc'
     # Coarse grid
-    #in2 = base + '/input/configs/inputV5/co2_grd.dat'
+    in2 = base + '/input/configs/inputV5/co2_grd.dat'
     # Fine
-    in1 = base + '/output/rate_ranges/11days/co2_S7_0.000001_run_0001.nc'
-    # Coarse grid
-    in2 = base + '/input/configs/inputV7/co2_grd.dat'
+    #in1 = base + '/output/rate_ranges/11days/co2_S7_0.000001_run_0001.nc'
+    # Fine grid
+    #in2 = base + '/input/configs/inputV7/co2_grd.dat'
 
     # Currently running
     #base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
@@ -297,7 +297,7 @@ if __name__ == '__main__':
         except KeyError:
             print 'Key \'DYE\' not found in FVCOM'
 
-    if False:
+    if True:
         # This has been split off into CO2_budget.py to analyse multiple files
         # at once. 
 
@@ -307,7 +307,9 @@ if __name__ == '__main__':
         # Calculate the total CO2 in the system using Riqui's algorithm
         allVolumes = unstructuredGridVolume(FVCOM)
         startDay = (5*24)
-        CO2, CO2Leak, maxCO2[aa] = CO2LeakBudget(FVCOM, leakIdx, startDay)
+        CO2, CO2Leak, maxCO2 = CO2LeakBudget(FVCOM, leakIdx, startDay)
+
+        print FVCOM['DYE'][startIdx+1,0,leakIdx], maxCO2
 
         # Get the concentration for the model
         concZ = FVCOM['DYE']/allVolumes
@@ -324,7 +326,7 @@ if __name__ == '__main__':
 
     # Animate some variable (ipython only)
     addVectors = False
-    animateModelOutput(FVCOM, 'DYE', startIdx, skipIdx, layerIdx, addVectors, noisy)
+    #animateModelOutput(FVCOM, 'DYE', startIdx, skipIdx, layerIdx, addVectors, noisy)
 
     # Static figure
     #gp.plotUnstructuredGrid(triangles, nodes, FVCOM['x'], FVCOM['y'], np.squeeze(Z[47,:]), '')
