@@ -10,11 +10,24 @@ import plot_unstruct_grid as gp
 from readFVCOM import readFVCOM
 from range_test_fit import calculateRegression
 
+def coefficientOfDetermination(obs, model):
+    """ Calculate the coefficient of determination for a modelled function """
+
+    obsBar = np.mean(obs)
+    modelBar = np.mean(model)
+    
+    SStot = np.sum((obs - obsBar)**2)
+    SSreg = np.sum((model - obsBar)**2)
+    R2 = SSreg / SStot
+
+    return R2
+
+
 
 if __name__ == '__main__':
 
     # Be verbose?
-    noisy = True
+    noisy = False
 
     getVars = ['x', 'y', 'xc', 'yc', 'zeta', 'art1', 'h', 'time', 'TCO2', 'PH', 'DYE',         'siglev']
 
@@ -23,7 +36,7 @@ if __name__ == '__main__':
 
     # Start index for each input file
     #startIdx = 770 # Riqui's
-    startIdx = 120 # Mine
+    startIdx = (5*24) # Mine
 
     # Skip value for animation (not zero)
     skipIdx = 5
@@ -31,10 +44,10 @@ if __name__ == '__main__':
     base = '/data/medusa/pica/models/FVCOM/runCO2_leak'
 
     # Get a list of files
-    fileNames = glob(base + '/output/rate_ranges/11days/co2_S7_*_0001.nc')
+    fileNames = glob(base + '/output/rate_ranges/11days/co2_S5_*_run_0001.nc')
 
     # Coarse grid
-    in2 = base + '/input/configs/inputV7/co2_grd.dat'
+    in2 = base + '/input/configs/inputV5/co2_grd.dat'
 
     # Output for calculated CO2
     maxCO2 = np.zeros(np.shape(fileNames))*np.nan
@@ -60,7 +73,7 @@ if __name__ == '__main__':
             #leakIdx = 8186
 
         # Get the input amount (use the first time step at the leak site)
-        inputRate[aa] = FVCOM['DYE'][121,0,leakIdx]
+        inputRateCurr = FVCOM['DYE'][startIdx+1,0,leakIdx]
 
         dt = (FVCOM['time'][1]-FVCOM['time'][0])*60*60*24
 
@@ -69,34 +82,57 @@ if __name__ == '__main__':
 
         # Calculate the total CO2 in the system using Riqui's algorithm
         allVolumes = rfvcom.unstructuredGridVolume(FVCOM)
-        startDay = (5*24)
 
-        CO2, CO2Leak, maxCO2[aa] = rfvcom.CO2LeakBudget(FVCOM, leakIdx, startDay)
+        CO2, CO2Leak, maxCO2Curr = rfvcom.CO2LeakBudget(FVCOM, leakIdx, startIdx)
+
+        # Skip out if the result is NaN
+        if np.isnan(maxCO2Curr):
+            continue
+        else:
+            maxCO2[aa] = maxCO2Curr
+            inputRate[aa] = inputRateCurr
+
+        print inputRate[aa], maxCO2[aa]
 
         # Get the concentration for the model
         concZ = FVCOM['DYE']/allVolumes
         # Get the total concentration at n=72 (i.e. 24 hours after DYE release)
-        dayConcZ = np.sum(concZ[np.r_[0:25]+startDay,:,:])
+        dayConcZ = np.sum(concZ[np.r_[0:25]+startIdx,:,:])
         # Scale the DYE by the volumes
         scaledZ = FVCOM['DYE']*allVolumes
 
         sumZ = np.sum(scaledZ, axis=1)
         totalZ = np.sum(sumZ, axis=1)
-        print 'Total DYE at day %i: %.2f' % (startDay, totalZ[startDay])
-        plt.figure()
-        plt.plot(FVCOM['time'], totalZ, '-x')
+        #plt.figure()
+        #plt.plot(FVCOM['time'], totalZ, '-x')
 
 
-    # Reorder the results by the inputRate
-    sortedData = np.transpose(np.sort([inputRate, maxCO2]))
+    # Remove NaNs and reorder the results by the inputRate
+    resultsArray = np.transpose(np.array([inputRate, maxCO2]))
+    resultsArray = np.ma.masked_array(resultsArray,np.isnan(resultsArray))
+    order = resultsArray[:, 0].argsort()
+    sortedData = np.take(resultsArray, order, 0)
 
-    # Calculate a regression
-    linX, linY = calculateRegression(sortedData[:,0], sortedData[:,1], 'lin')
+    # Calculate a regression, omitting the largest synthetic inputs which
+    # are the least reliable
+    maxInput = 100
+    inputIdx = sortedData[:,0] <= maxInput
+    linX, linY, m, c, r = calculateRegression(sortedData[inputIdx,0], 
+                                              sortedData[inputIdx,1], 
+                                              'lin0')
 
-    # Make a pretty picture
+    if np.isnan(r):
+        # We don't have a correlation coefficient, so calculate one
+        r = np.sqrt(coefficientOfDetermination(sortedData[inputIdx,1], linY))
+
+    # What's the equation of the line?
+    print 'y = %sx + %s, r = %s' % (m, c, r)
+
+
+        # Make a pretty picture
     plt.figure()
-    plt.loglog(sortedData[:,0], sortedData[:,1],'g-x', label='Data')
-    plt.loglog(linX, linY, 'r-+', label='Linear regression')
+    plt.plot(sortedData[:,0], sortedData[:,1],'g-x', label='Data')
+    plt.plot(linX, linY, 'r-+', label='Linear regression')
     plt.xlabel('Input rate')
     plt.ylabel('Total CO2 in domain')
     plt.legend(loc=2, frameon=False)
