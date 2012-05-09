@@ -1,5 +1,4 @@
 # Lines starting with '#' are considered comments.
-# Ignore any file named foo.txt.
 *.dat
 *.nc
 *.2dm
