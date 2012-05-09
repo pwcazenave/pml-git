@@ -15,7 +15,7 @@ def coefficientOfDetermination(obs, model):
 
     obsBar = np.mean(obs)
     modelBar = np.mean(model)
-    
+
     SStot = np.sum((obs - obsBar)**2)
     SSreg = np.sum((model - obsBar)**2)
     R2 = SSreg / SStot
@@ -107,35 +107,35 @@ if __name__ == '__main__':
         #plt.plot(FVCOM['time'], totalZ, '-x')
 
 
-    # Remove NaNs and reorder the results by the inputRate
-    resultsArray = np.transpose(np.array([inputRate, maxCO2]))
-    resultsArray = np.ma.masked_array(resultsArray,np.isnan(resultsArray))
-    order = resultsArray[:, 0].argsort()
-    sortedData = np.take(resultsArray, order, 0)
+# Remove NaNs and reorder the results by the inputRate
+resultsArray = np.transpose(np.array([inputRate, maxCO2]))
+resultsArray = np.ma.masked_array(resultsArray,np.isnan(resultsArray))
+order = resultsArray[:, 0].argsort()
+sortedData = np.take(resultsArray, order, 0)
 
-    # Calculate a regression, omitting the largest synthetic inputs which
-    # are the least reliable
-    maxInput = 100
-    inputIdx = sortedData[:,0] <= maxInput
-    linX, linY, m, c, r = calculateRegression(sortedData[inputIdx,0], 
-                                              sortedData[inputIdx,1], 
-                                              'lin0')
+# Calculate a regression, omitting the largest synthetic inputs which
+# are the least reliable
+maxInput = 100
+inputIdx = sortedData[:,0] <= maxInput
+linX, linY, m, c, r = calculateRegression(sortedData[inputIdx,0],
+                                          sortedData[inputIdx,1],
+                                          'lin0')
 
-    if np.isnan(r):
-        # We don't have a correlation coefficient, so calculate one
-        r = np.sqrt(coefficientOfDetermination(sortedData[inputIdx,1], linY))
+if np.isnan(r):
+    # We don't have a correlation coefficient, so calculate one
+    r = np.sqrt(coefficientOfDetermination(sortedData[inputIdx,1], linY))
 
-    # What's the equation of the line?
-    print 'y = %sx + %s, r = %s' % (m, c, r)
+# What's the equation of the line?
+print 'y = %sx + %s, r = %s' % (m[0], c, r)
 
 
-        # Make a pretty picture
-    plt.figure()
-    plt.plot(sortedData[:,0], sortedData[:,1],'g-x', label='Data')
-    plt.plot(linX, linY, 'r-+', label='Linear regression')
-    plt.xlabel('Input rate')
-    plt.ylabel('Total CO2 in domain')
-    plt.legend(loc=2, frameon=False)
+    # Make a pretty picture
+plt.figure()
+plt.plot(sortedData[:,0], sortedData[:,1],'g-x', label='Data')
+plt.plot(linX, linY, 'r-+', label='Linear regression')
+plt.xlabel('Input rate')
+plt.ylabel('Total CO2 in domain')
+plt.legend(loc=2, frameon=False)
 
 
 
