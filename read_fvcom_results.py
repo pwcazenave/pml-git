@@ -309,7 +309,9 @@ if __name__ == '__main__':
         startDay = (5*24)
         CO2, CO2Leak, maxCO2 = CO2LeakBudget(FVCOM, leakIdx, startDay)
 
-        print FVCOM['DYE'][startIdx+1,0,leakIdx], maxCO2
+        if noisy:
+            print 'Input at cell %i:\t\t%.4f' % (leakIdx, FVCOM['DYE'][startIdx+1,0,leakIdx])
+            print 'Maximum CO2 in the system:\t%.2e' % maxCO2
 
         # Get the concentration for the model
         concZ = FVCOM['DYE']/allVolumes
@@ -320,13 +322,14 @@ if __name__ == '__main__':
 
         sumZ = np.sum(scaledZ, axis=1)
         totalZ = np.sum(sumZ, axis=1)
-        print 'Total DYE at day %i: %.2f' % (startDay, totalZ[startDay])
+        if noisy:
+            print 'Total DYE at day %i:\t\t%.2f' % (startDay, totalZ[startDay])
         plt.figure()
         plt.plot(FVCOM['time'], totalZ, '-x')
 
     # Animate some variable (ipython only)
     addVectors = False
-    #animateModelOutput(FVCOM, 'DYE', startIdx, skipIdx, layerIdx, addVectors, noisy)
+    animateModelOutput(FVCOM, 'DYE', startIdx, skipIdx, layerIdx, addVectors, noisy)
 
     # Static figure
     #gp.plotUnstructuredGrid(triangles, nodes, FVCOM['x'], FVCOM['y'], np.squeeze(Z[47,:]), '')
