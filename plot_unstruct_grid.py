@@ -82,6 +82,10 @@ def plotUnstructuredGrid(triangles, nodes, x, y, z, colourLabel, addText=False):
     """ 
     Takes the output of parseUnstructuredGridFVCOM() or 
     parseUnstructuredGridSMS() and readFVCOM() and plots it.
+
+    Give triangles, nodes, x, y, z and a label for the colour scale. The first
+    five arguments are the output of parseUnstructuredGridFVCOM() or 
+    parseUnstructuredGridSMS().
     """
 
     plt.figure()
