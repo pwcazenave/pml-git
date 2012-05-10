@@ -54,13 +54,13 @@ def calculateTotalCO2(FVCOM, varPlot, startIdx, layerIdx, leakIdx, dt, noisy=Fal
         print "Total in the system per day:\t%.2f" % (totalCO2inSystem/nDays)
 
     # Make a pretty picture
-    plt.figure(100)
-    plt.clf()
-    #plt.plot(FVCOM['time'],TCO2,'r-x')
-    plt.plot(xrange(Z.shape[0]),np.squeeze(Z[:,layerIdx,leakIdx]),'r-x')
-    plt.xlabel('Time')
-    plt.ylabel(varPlot + ' input')
-    plt.show()
+    #plt.figure(100)
+    #plt.clf()
+    ##plt.plot(FVCOM['time'],TCO2,'r-x')
+    #plt.plot(xrange(Z.shape[0]),np.squeeze(Z[:,layerIdx,leakIdx]),'r-x')
+    #plt.xlabel('Time')
+    #plt.ylabel(varPlot + ' input')
+    #plt.show()
 
     return totalCO2inSystem
 
@@ -324,8 +324,8 @@ if __name__ == '__main__':
         totalZ = np.sum(sumZ, axis=1)
         if noisy:
             print 'Total DYE at day %i:\t\t%.2f' % (startDay, totalZ[startDay])
-        plt.figure()
-        plt.plot(FVCOM['time'], totalZ, '-x')
+        #plt.figure()
+        #plt.plot(FVCOM['time'], totalZ, '-x')
 
     # Animate some variable (ipython only)
     addVectors = False
