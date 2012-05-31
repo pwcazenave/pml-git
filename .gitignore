@@ -2,6 +2,7 @@
 *.dat
 *.nc
 *.2dm
+*.pts
 *.mesh
 *.swp
 *.swo
