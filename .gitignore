@@ -8,3 +8,6 @@
 *.swo
 .nfs*
 tides_uk
+
+# Some directories
+data
